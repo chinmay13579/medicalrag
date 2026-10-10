@@ -10,3 +10,4 @@ eval/reports/
 *.egg-info/
 .promptfoo/
 .venv/
+~$*
