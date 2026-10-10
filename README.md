@@ -32,7 +32,8 @@ This README is also the project's architecture documentation, structured after t
 This documentation distinguishes three levels, because a privacy-critical system should not overclaim:
 
 * **Verified** - exercised by an automated test or measured in this repository (82 unit tests, a
-  59-case evaluation set with CI gates, a 38-test promptfoo suite run against the live service).
+  59-case evaluation set with CI gates, a 38-test promptfoo suite run against the live service; the CI
+  workflow's lint, test, evaluation-gate and promptfoo jobs also passed on GitHub-hosted Linux runners).
 * **Written, not executed** - artefacts that could not be run in the authoring environment: the Docker
   image and `docker-compose.yml`, Prometheus alert rules (syntax-checked and cross-checked against the
   exported metric names, but not loaded into Prometheus), the Grafana dashboard, and the generative
@@ -464,7 +465,7 @@ sequenceDiagram
     P->>R: search(masked query)
     R-->>P: ranked hits (bm25, dense, RRF, re-rank)
     P->>B: build_prompt(hits, identified_query=true)
-    B-->>P: PromptBundle (minimum context; anonymised reports dropped)
+    B-->>P: PromptBundle (minimum context, anonymised reports dropped)
     P->>P: residual-PII gate on system+user text
     P->>L: generate(bundle)
     L-->>P: raw answer with [c1] citations
@@ -593,7 +594,8 @@ rejected with 422 so patient data cannot arrive through the feedback door.
 > **written but not executed** (no Docker or Prometheus in the authoring environment). They are
 > statically validated by `tests/test_ops_config.py` (YAML/JSON parse; every metric and label used in
 > alerts and dashboard exists in the real exposition). The API and the Streamlit app were run for real,
-> including Streamlit-over-HTTP against a live API.
+> including Streamlit-over-HTTP against a live API. The CI workflow itself ran on GitHub Actions (its
+> `redteam` job needs an API key and is not part of push runs).
 
 ### 7.1 Topology (docker compose)
 
@@ -654,7 +656,8 @@ Residency: run **one stack per region** (EU, India). Nothing in the service move
 2. `python eval/run_eval.py` (offline profile): retrieval, end-to-end, safety and de-identification
    gates; non-zero exit on breach.
 3. Start the API; `promptfoo eval` (38 deterministic tests); results uploaded as an artefact.
-4. On pushes only: generative red-team (needs `ANTHROPIC_API_KEY`; **never executed so far**).
+4. Weekly or by hand (`workflow_dispatch`): generative red-team. It needs an `ANTHROPIC_API_KEY` repository
+   secret and skips cleanly without one, so it is **never executed so far**; push and PR runs do not include it.
 
 The `semantic` profile gate is run manually (`make eval-semantic`) because it downloads two models.
 
