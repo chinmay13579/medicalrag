@@ -4,6 +4,8 @@ A retrieval-augmented question-answering service for a healthcare data-interoper
 clinicians and research; Slovakia, Czechia, India; heading toward the European Health Data Space). Staff ask
 policy and procedure questions and get cited answers; identifiers are masked before anything is indexed or
 sent to a model, clinical reports are de-identified, and the system is observable without creating a new leak.
+It is built with Python, FastAPI, Streamlit, Prometheus and OpenTelemetry, sentence-transformers and (optionally) Claude;
+see the [Technology stack](#technology-stack).
 
 This README is also the project's architecture documentation, structured after the
 [arc42](https://arc42.org) template. Diagrams are Mermaid and render on GitHub.
@@ -286,6 +288,33 @@ training; the care provider's controller duties.
 | **Observability** | One request record per question feeding Prometheus metrics, a bounded in-memory trace store and a structured log line; optional OpenTelemetry spans; telemetry itself is privacy-safe. | `observability/` | 010 |
 | **Testability / portability** | Offline-first default profile so CI needs no network; real-model profile behind the same interfaces; per-profile evaluation gates. | `configs/`, `eval/` | 008, 012 |
 | **Usability** | Streamlit app with swappable backend; shows the exact pseudonymised prompt and guardrail verdicts. | `ui/` | 011 |
+
+### Technology stack
+
+ragkit is a Python application. The pipeline is **hand-written on purpose**: no RAG framework (LangChain, LlamaIndex)
+sits between the code and the privacy boundary, so every place where text is transformed, stored or sent to a model can
+be read, tested and audited. Dependencies are declared in `pyproject.toml` (core and optional extras), `package.json`
+(promptfoo), the `Dockerfile` and `docker-compose.yml`.
+
+| Layer | Technology | Used for | Tested with |
+|-------|-----------|----------|-------------|
+| Language | **Python** 3.10+ (CI and container: 3.11); **Node.js** 22 for promptfoo only | Application; security test runner | Python 3.10 and 3.11 |
+| API | **FastAPI** + **Uvicorn**; **Pydantic** v2 | REST service, request validation, typed settings | FastAPI 0.143, Uvicorn 0.54, Pydantic 2.9 |
+| Keyword search | Own **BM25** implementation | Lexical retrieval, no dependency | - |
+| Embeddings | Own hashing embedder on **NumPy** (offline profile); **sentence-transformers** `all-MiniLM-L6-v2` (semantic profile) | Dense retrieval | NumPy 2.2; sentence-transformers 3.4 with Transformers 4.57 on PyTorch 2.2 |
+| Re-ranking | Heuristic scorer (offline); cross-encoder `ms-marco-MiniLM-L-6-v2` (semantic) | Second-stage ordering | as above |
+| Privacy | Own regex and gazetteer detectors; **HMAC-SHA256** (Python standard library) | Pseudonymisation, report de-identification | - |
+| Language model | **Anthropic SDK** adapter (Claude, model set in config; default `claude-sonnet-5-5`); built-in extractive answerer | Answer generation (optional); offline answers | Extractive path only; the Claude path has not been run |
+| Web UI | **Streamlit**, **pandas**, **httpx** | Five-tab app, in-process or over HTTP | Streamlit 1.65, pandas 2.3, httpx 0.28 |
+| Observability | **prometheus-client**; **OpenTelemetry** SDK (optional); stdlib JSON logging; **Prometheus** and **Grafana** (deploy) | Metrics, traces, logs, alerts, dashboard | prometheus-client 0.26, OpenTelemetry 1.45 |
+| Configuration | **PyYAML** profiles + environment variables | `default` and `semantic` profiles | PyYAML 6.0 |
+| Quality | **pytest** (with FastAPI `TestClient` and Streamlit `AppTest`); **promptfoo**; **ruff** | 82 tests, security suite, lint | pytest 9.1, promptfoo 0.124, ruff 0.17 |
+| Delivery | **Docker** (`python:3.11-slim`), **Docker Compose**, **GitHub Actions** | Container build, local stack, CI | CI run on GitHub Actions; Docker not executed |
+| Documentation | **arc42** template, **Mermaid** diagrams | This README | Diagrams validated with the Mermaid parser |
+
+**Deliberately not used:** a RAG orchestration framework, a vector database (the index is in memory), and an external
+named-entity model such as Presidio or spaCy (a listed next step). The reasons are in the architecture decisions (ADR-001,
+ADR-008, ADR-013).
 
 ### Guiding principles
 
