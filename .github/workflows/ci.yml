@@ -1,0 +1,58 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -e .[dev,ui,otel]
+      - run: ruff check src eval tests scripts
+      - run: pytest -q        # unit, observability, ops-config and Streamlit AppTest suites
+      # Retrieval/privacy/safety quality gate (offline profile, no model downloads, no API key).
+      - run: python eval/run_eval.py
+
+  security-promptfoo:
+    runs-on: ubuntu-latest
+    needs: test-and-eval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: pip install -e .
+      - run: npm ci
+      - name: start service
+        run: |
+          uvicorn --factory ragkit.api.app:get_app --port 8000 &
+          for i in $(seq 1 30); do curl -sf localhost:8000/healthz && break; sleep 1; done
+      - name: promptfoo deterministic security suite
+        run: npx promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache --output promptfoo/output/results.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: promptfoo-results, path: promptfoo/output/ }
+
+  # Generative red-team needs an LLM key; run nightly / on release branches, not on every PR.
+  redteam:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: security-promptfoo
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: pip install -e . && npm ci
+      - run: |
+          uvicorn --factory ragkit.api.app:get_app --port 8000 &
+          for i in $(seq 1 30); do curl -sf localhost:8000/healthz && break; sleep 1; done
+      - run: npx promptfoo redteam run -c promptfoo/redteam.yaml --output promptfoo/output/redteam.json

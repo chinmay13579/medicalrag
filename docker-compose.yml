@@ -1,0 +1,56 @@
+# Local / staging stack:  docker compose up --build
+#   API        http://localhost:8000   (/metrics, /docs)
+#   UI         http://localhost:8501   (Streamlit, talks to the API over HTTP only)
+#   Prometheus http://localhost:9090
+#   Grafana    http://localhost:3000   (dashboard "ragkit overview"; admin password from GRAFANA_PASSWORD)
+#
+# Required in .env: PSEUDO_KEY, RAGKIT_ADMIN_TOKEN.   Optional: ANTHROPIC_API_KEY, GRAFANA_PASSWORD.
+services:
+  api:
+    build: .
+    environment:
+      RAGKIT_ENV: prod                       # debug prompts and unauthenticated admin endpoints off
+      PSEUDO_KEY: ${PSEUDO_KEY:?set PSEUDO_KEY in .env}
+      RAGKIT_ADMIN_TOKEN: ${RAGKIT_ADMIN_TOKEN:?set RAGKIT_ADMIN_TOKEN in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LOG_LEVEL: INFO
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/readyz')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  ui:
+    build:
+      context: .
+      args: {EXTRAS: ui}
+    command: ["streamlit", "run", "src/ragkit/ui/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    environment:
+      RAGKIT_API_URL: http://api:8000        # HTTP mode: the UI holds no index and no pseudonymisation key
+      RAGKIT_ADMIN_TOKEN: ${RAGKIT_ADMIN_TOKEN:?set RAGKIT_ADMIN_TOKEN in .env}
+    ports: ["8501:8501"]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]

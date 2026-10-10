@@ -1,0 +1,13 @@
+{
+  "name": "ragkit-security",
+  "private": true,
+  "description": "promptfoo security/regression suite for the ragkit service",
+  "scripts": {
+    "sec:eval": "promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache",
+    "sec:view": "promptfoo view",
+    "sec:redteam": "promptfoo redteam run -c promptfoo/redteam.yaml"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.124.1"
+  }
+}

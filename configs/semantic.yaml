@@ -1,0 +1,40 @@
+data_dir: data/raw
+
+chunking:
+  target_words: 90        # soft upper bound per chunk
+  overlap_sentences: 1    # sentences carried over between split chunks
+  min_words: 12           # smaller trailing pieces are merged into the previous chunk
+
+retrieval:
+  top_k_bm25: 10
+  top_k_dense: 10
+  rrf_k: 60
+  fused_candidates: 8     # candidates handed to the re-ranker
+  embedder: sentence-transformers
+  st_model: sentence-transformers/all-MiniLM-L6-v2
+  reranker: cross-encoder
+  ce_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+context:                  # "minimum necessary context" policy
+  max_chunks: 3
+  max_context_tokens: 450
+  min_rerank_score: 0.0   # cross-encoder probabilities are not calibrated for abstention
+  # (see docs/DESIGN.md); evidence is judged by embedding cosine instead
+  relative_floor: 0.55    # keep chunks scoring >= 55% of the best chunk
+  min_dense_cosine: 0.25  # >0: also require this embedding cosine (calibrated for semantic embedders)
+  prune_sentences: false  # keep only query-overlapping sentences; hurts paraphrased queries, off by default
+
+privacy:
+  rehydrate: query_only   # none | query_only
+  fail_on_residual_pii: true
+
+observability:
+  log_queries: false
+  trace_buffer: 500
+  otel: false
+
+llm:
+  provider: extractive    # extractive (offline) | anthropic
+  model: claude-sonnet-5-5
+  max_tokens: 400
+  temperature: 0.0

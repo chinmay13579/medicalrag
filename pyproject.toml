@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragkit"
+version = "0.1.0"
+description = "Privacy-preserving RAG prototype: hybrid retrieval, re-ranking, pseudonymisation, guardrails, eval."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.109",
+  "uvicorn>=0.27",
+  "pydantic>=2.5,<2.10; python_full_version == '3.10.0'",   # 3.10.0 lacks a typing fix newer pydantic needs
+  "pydantic>=2.5; python_full_version != '3.10.0'",
+  "numpy>=1.26",
+  "pyyaml>=6.0",
+  "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+dense = ["sentence-transformers>=2.2"]
+llm = ["anthropic>=0.40"]
+ui = ["streamlit>=1.35", "pandas>=2.0", "httpx>=0.26"]
+otel = ["opentelemetry-sdk>=1.25", "opentelemetry-exporter-otlp-proto-http>=1.25"]
+dev = ["pytest>=8", "httpx>=0.26", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ragkit = ["api/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+# explicit, version-stable rule set (ruff's defaults change between releases)
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]            # long regex / prose lines are intentional
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]         # tests import after sys.path / importorskip setup
+"eval/*" = ["E402"]
+"scripts/*" = ["E402"]

@@ -1,0 +1,87 @@
+groups:
+  - name: ragkit-privacy
+    rules:
+      - alert: RagkitResidualPiiInPrompt
+        expr: increase(ragkit_guardrail_events_total{guard="prompt",reason="residual_pii"}[5m]) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: "A prompt was blocked because personal data survived pseudonymisation"
+          description: >
+            Pseudonymisation missed an identifier format (the fail-closed gate caught it). Add a detector
+            and a regression case; check whether the same format exists in the index.
+
+      - alert: RagkitReportDeidentificationFailed
+        expr: ragkit_reports_deidentified{status="needs_review"} > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "A medical report failed the post-anonymisation residual check"
+          description: "Reports flagged needs_review are still indexed. Review and re-ingest before further use."
+
+      - alert: RagkitOutputGuardBlocks
+        expr: sum(increase(ragkit_requests_total{status="blocked_output"}[15m])) > 3
+        labels: {severity: warning}
+        annotations:
+          summary: "The output guardrail is blocking model answers repeatedly"
+          description: "Possible prompt-injection campaign, a model regression or a prompt change."
+
+  - name: ragkit-security
+    rules:
+      - alert: RagkitInputGuardSpike
+        expr: sum(increase(ragkit_guardrail_events_total{guard="input"}[10m])) > 20
+        labels: {severity: warning}
+        annotations:
+          summary: "Unusual volume of refused requests (injection / exfiltration / clinical-advice)"
+
+  - name: ragkit-quality
+    rules:
+      - alert: RagkitNoEvidenceRateHigh
+        expr: |
+          sum(rate(ragkit_requests_total{status="no_evidence"}[30m]))
+            / clamp_min(sum(rate(ragkit_requests_total[30m])), 1e-9) > 0.4
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "More than 40% of questions have no supporting evidence"
+          description: "Knowledge gap, stale corpus or retrieval regression."
+
+      - alert: RagkitRetrievalScoreDrift
+        expr: |
+          sum(rate(ragkit_retrieval_top_score_sum[1h]))
+            / clamp_min(sum(rate(ragkit_retrieval_top_score_count[1h])), 1e-9) < 0.35
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Average best-chunk retrieval score has fallen"
+
+      - alert: RagkitNegativeFeedback
+        expr: |
+          sum(increase(ragkit_feedback_total{rating="down"}[1h]))
+            / clamp_min(sum(increase(ragkit_feedback_total[1h])), 1) > 0.3
+          and sum(increase(ragkit_feedback_total[1h])) >= 10
+        labels: {severity: info}
+        annotations:
+          summary: "Over 30% of rated answers were marked not helpful"
+
+  - name: ragkit-availability
+    rules:
+      - alert: RagkitDown
+        expr: up{job="ragkit"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "ragkit API is not reachable"
+
+      - alert: RagkitHigh5xx
+        expr: sum(rate(ragkit_http_requests_total{code=~"5.."}[5m])) > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "The API is returning 5xx responses"
+
+      - alert: RagkitLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(ragkit_request_duration_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "p95 end-to-end latency above 2 s (extractive profile is ~10 ms; LLM profile will be higher: tune)"
