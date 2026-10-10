@@ -46,6 +46,7 @@ This documentation distinguishes three levels, because a privacy-critical system
 * Evaluation harness and gates: [`eval/`](eval), thresholds in `eval/thresholds.<profile>.json`
 * Security tests: [`promptfoo/`](promptfoo)
 * Ops artefacts: [`deploy/`](deploy), [`docker-compose.yml`](docker-compose.yml)
+* **Project report (PDF, 17 pages): [`docs/ragkit-project-report.pdf`](docs/ragkit-project-report.pdf)**: what the project is, how it works, results and limitations, for readers who want an overview first
 * Slide deck: [`docs/ragkit-overview.pptx`](docs/ragkit-overview.pptx)
 
 ## Quick start
