@@ -47,7 +47,6 @@ This documentation distinguishes three levels, because a privacy-critical system
 * Security tests: [`promptfoo/`](promptfoo)
 * Ops artefacts: [`deploy/`](deploy), [`docker-compose.yml`](docker-compose.yml)
 * **Project report (PDF, 17 pages): [`docs/ragkit-project-report.pdf`](docs/ragkit-project-report.pdf)**: what the project is, how it works, results and limitations, for readers who want an overview first
-* Slide deck: [`docs/ragkit-overview.pptx`](docs/ragkit-overview.pptx)
 
 ## Quick start
 
@@ -88,13 +87,13 @@ Repository layout:
 | `deploy/`, `docker-compose.yml`, `Dockerfile` | Prometheus, alert rules, Grafana, container build |
 | `configs/` | `default.yaml` (offline) and `semantic.yaml` (real models) profiles |
 | `tests/` | unit, component, UI (Streamlit `AppTest`) and ops-config tests |
-| `docs/` | `screenshots/` and the slide deck `ragkit-overview.pptx` |
+| `docs/` | `screenshots/` and the PDF project report |
 
 ## Sample output
 
 Captured from a real run (API and Streamlit app in HTTP mode, Edge driven by Playwright). The full set is in
-[`docs/screenshots/`](docs/screenshots); a slide deck about the project is
-[`docs/ragkit-overview.pptx`](docs/ragkit-overview.pptx).
+[`docs/screenshots/`](docs/screenshots); the PDF report is
+[`docs/ragkit-project-report.pdf`](docs/ragkit-project-report.pdf).
 
 | | |
 |---|---|

@@ -11,3 +11,4 @@ eval/reports/
 .promptfoo/
 .venv/
 ~$*
+*.pptx
